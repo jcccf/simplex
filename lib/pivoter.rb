@@ -30,7 +30,7 @@ module Simplex
       puts "---"
     end
 
-    def pivot(a, ab, z, zb)
+    def pivot(a, ab, z, zb, add_constraint = false)
       rows = a.count-1
       cols = z.count-1
   
@@ -39,6 +39,35 @@ module Simplex
       zb = Fraction.convert(zb)
       a = a.map!{|x| x.map{|y| Fraction.convert(y)}}
       ab = ab.map!{|x| Fraction.convert(x)}
+      
+      # Make last row suitable for dual simplex
+      # TODO I wonder if this is truly correct
+      if add_constraint
+        new_row = a[-1].dup
+        new_ab = ab[-1]
+        a[-1].each_with_index do |nval,j|
+          if nval != 0
+            #puts "Looking for "+j.to_s
+            # Find basic row corresponding to it
+            a[0..-2].each_with_index do |row,i|
+              if row[j] == 1
+                row.each_with_index do |val,j2|
+                  new_row[j2] -= val * nval
+                end
+                #puts "Index"+i.to_s
+                new_ab -= ab[i] * nval
+                #puts new_row.inspect
+                #puts new_ab.inspect
+                break
+              end
+            end
+          end
+        end
+        a[-1] = new_row
+        ab[-1] = new_ab
+        puts "Converted last row into "
+        print_row(a[-1],ab[-1])
+      end
 
       # Convert to floats
       # z = z.map!{|x| x.to_f}
@@ -171,6 +200,17 @@ module Simplex
     # Generate solution to input which may or may not be integer-valued
     def optimize(a, ab, z, zb)
       begin
+        a, ab, z, zb = pivot(a, ab, z, zb) while true
+      rescue
+        puts "Tableau is optimal!"
+        puts
+      end
+      [a, ab, z, zb]
+    end
+    
+    def optimize_add_constraint(a, ab, z, zb)
+      begin
+        a, ab, z, zb = pivot(a, ab, z, zb, true)
         a, ab, z, zb = pivot(a, ab, z, zb) while true
       rescue
         puts "Tableau is optimal!"
